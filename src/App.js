@@ -9,10 +9,32 @@ export default function App() {
   const [description, setDescription] = useState("");
   const [time, setTime] = useState("");
   const [frequency, setFrequency] = useState("Once");
-  const [reminders, setReminders] = useState([]);
   const [appError, setAppError] = useState(null);
 
-  // Format time to 12-hour format
+  // Reminders with localStorage persistence
+  const [reminders, setReminders] = useState(() => {
+    const stored = localStorage.getItem("reminders");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        return parsed.map(rem => ({
+          ...rem,
+          date: new Date(rem.date),
+          reminderTime: rem.reminderTime ? new Date(rem.reminderTime) : null
+        }));
+      } catch (e) {
+        console.error("Failed to parse reminders from localStorage", e);
+        return [];
+      }
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("reminders", JSON.stringify(reminders));
+  }, [reminders]);
+
+  // Helper: Format time to 12-hour format
   const formatTo12Hour = (time24) => {
     if (!time24 || !time24.includes(":")) return time24;
     const [hourStr, minute] = time24.split(":");
@@ -46,24 +68,6 @@ export default function App() {
     }
   }, []);
 
-  // Load reminders from localStorage on first render
-  useEffect(() => {
-    const storedReminders = localStorage.getItem("reminders");
-    if (storedReminders) {
-      const parsedReminders = JSON.parse(storedReminders).map(rem => ({
-        ...rem,
-        date: new Date(rem.date),
-        reminderTime: rem.reminderTime ? new Date(rem.reminderTime) : null
-      }));
-      setReminders(parsedReminders);
-    }
-  }, []);
-
-  // Save reminders to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem("reminders", JSON.stringify(reminders));
-  }, [reminders]);
-
   // Calendar logic
   const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
   const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
@@ -83,6 +87,7 @@ export default function App() {
     setSelectedDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), day));
   };
 
+  // Reminder actions
   const addReminder = () => {
     if (!title.trim()) return;
     const reminderTime = new Date(selectedDate);
@@ -126,6 +131,7 @@ export default function App() {
     setReminders(updated);
   };
 
+  // Notification helpers
   const getIntervalMs = (freq) => {
     switch (freq) {
       case "Every minute": return 60000;
@@ -169,6 +175,7 @@ export default function App() {
     return () => timers.forEach(timer => clearTimeout(timer));
   }, [reminders]);
 
+  // Display overdue info
   const getOverdueMinutes = (reminder) => {
     if (!reminder.reminderTime) return reminder.title;
     const now = new Date();
